@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "selenium-grid.firefoxNode.name" . }}
+  labels:
+    {{- include "selenium-grid.firefoxNode.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.firefoxNode.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "selenium-grid.firefoxNode.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "selenium-grid.firefoxNode.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: firefox-node
+          image: "{{ .Values.firefoxNode.image.repository }}:{{ .Values.firefoxNode.image.tag }}"
+          imagePullPolicy: {{ .Values.firefoxNode.image.pullPolicy }}
+          ports:
+            - name: status
+              containerPort: {{ .Values.firefoxNode.port }}
+          env:
+            - name: SE_EVENT_BUS_HOST
+              value: {{ include "selenium-grid.hub.name" . }}
+            - name: SE_EVENT_BUS_PUBLISH_PORT
+              value: {{ .Values.hub.ports.eventBusPublish | quote }}
+            - name: SE_EVENT_BUS_SUBSCRIBE_PORT
+              value: {{ .Values.hub.ports.eventBusSubscribe | quote }}
+            - name: SE_NODE_MAX_SESSIONS
+              value: {{ .Values.firefoxNode.maxSessions | quote }}
+            - name: SE_NODE_OVERRIDE_MAX_SESSIONS
+              value: "true"
+            - name: SE_NODE_PORT
+              value: {{ .Values.firefoxNode.port | quote }}
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: status
+            initialDelaySeconds: {{ .Values.firefoxNode.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.firefoxNode.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.firefoxNode.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.firefoxNode.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: status
+            initialDelaySeconds: {{ .Values.firefoxNode.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.firefoxNode.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.firefoxNode.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.firefoxNode.probes.liveness.failureThreshold }}
+          resources:
+            {{- toYaml .Values.firefoxNode.resources | nindent 12 }}
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.firefoxNode.shmSize }}

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "selenium-grid.chromeNode.name" . }}
+  labels:
+    {{- include "selenium-grid.chromeNode.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.chromeNode.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "selenium-grid.chromeNode.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "selenium-grid.chromeNode.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: chrome-node
+          image: "{{ .Values.chromeNode.image.repository }}:{{ .Values.chromeNode.image.tag }}"
+          imagePullPolicy: {{ .Values.chromeNode.image.pullPolicy }}
+          ports:
+            - name: status
+              containerPort: {{ .Values.chromeNode.port }}
+          env:
+            - name: SE_EVENT_BUS_HOST
+              value: {{ include "selenium-grid.hub.name" . }}
+            - name: SE_EVENT_BUS_PUBLISH_PORT
+              value: {{ .Values.hub.ports.eventBusPublish | quote }}
+            - name: SE_EVENT_BUS_SUBSCRIBE_PORT
+              value: {{ .Values.hub.ports.eventBusSubscribe | quote }}
+            - name: SE_NODE_MAX_SESSIONS
+              value: {{ .Values.chromeNode.maxSessions | quote }}
+            - name: SE_NODE_OVERRIDE_MAX_SESSIONS
+              value: "true"
+            - name: SE_NODE_PORT
+              value: {{ .Values.chromeNode.port | quote }}
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: status
+            initialDelaySeconds: {{ .Values.chromeNode.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.chromeNode.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.chromeNode.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.chromeNode.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: status
+            initialDelaySeconds: {{ .Values.chromeNode.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.chromeNode.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.chromeNode.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.chromeNode.probes.liveness.failureThreshold }}
+          resources:
+            {{- toYaml .Values.chromeNode.resources | nindent 12 }}
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.chromeNode.shmSize }}

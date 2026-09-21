@@ -1,0 +1,28 @@
+Selenium Grid has been deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Hub service: {{ include "selenium-grid.hub.name" . }}
+  In-cluster WebDriver endpoint:
+    http://{{ include "selenium-grid.hub.name" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.hub.ports.console }}/wd/hub
+
+Check that the hub and both node pods are ready:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl wait --for=condition=Ready pod -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }} --timeout=180s
+
+Reach the Grid console / WebDriver endpoint from your machine:
+
+{{- if eq .Values.hub.service.type "NodePort" }}
+
+  The hub is exposed as a NodePort on {{ .Values.hub.service.nodePort }}. If you created your
+  kind cluster with this repo's kind-config.yaml, that port is already mapped to
+  http://localhost:4444 on the host.
+{{- else }}
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "selenium-grid.hub.name" . }} 4444:{{ .Values.hub.ports.console }}
+
+  Then browse http://localhost:4444 for the Grid console, or point a
+  RemoteWebDriver client at http://localhost:4444/wd/hub.
+{{- end }}
+
+Run the smoke tests in smoke-tests/ against the forwarded/exposed endpoint to
+verify the grid end-to-end (see this repo's README for details).

@@ -1,0 +1,18 @@
+# kind cluster config for running this chart locally.
+#
+# A single-node cluster is enough for the hub + one Chrome node + one
+# Firefox node with the modest resource requests in values.yaml.
+#
+# The extraPortMappings entry maps the host's localhost:4444 to the
+# NodePort the chart's hub Service uses when hub.service.type=NodePort
+# (see values.yaml: hub.service.nodePort, default 30444). This is only
+# needed if you switch the hub Service to NodePort for direct host access
+# instead of `kubectl port-forward` (the default and what CI uses).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30444
+        hostPort: 4444
+        protocol: TCP

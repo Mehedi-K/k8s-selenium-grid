@@ -1,0 +1,116 @@
+name: Selenium Grid on Kubernetes CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  grid-smoke-test:
+    name: Deploy chart to kind and run smoke tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install smoke-test dependencies
+        run: pip install -r smoke-tests/requirements.txt
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.16.2"
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          config: kind-config.yaml
+          cluster_name: selenium-grid-ci
+
+      - name: Lint the chart
+        run: helm lint ./charts/selenium-grid
+
+      - name: Install the Selenium Grid chart
+        run: |
+          helm install selenium-grid ./charts/selenium-grid \
+            --namespace selenium-grid \
+            --create-namespace
+
+      - name: Wait for hub and node pods to become Ready
+        run: |
+          kubectl wait --for=condition=Ready pod \
+            -l app.kubernetes.io/instance=selenium-grid \
+            -n selenium-grid \
+            --timeout=240s
+
+      - name: Show deployed resources
+        if: always()
+        run: |
+          kubectl get all -n selenium-grid
+          kubectl get pods -n selenium-grid -o wide
+
+      - name: Port-forward the hub service
+        run: |
+          kubectl port-forward -n selenium-grid svc/selenium-grid-hub 4444:4444 \
+            > /tmp/port-forward.log 2>&1 &
+          echo $! > /tmp/port-forward.pid
+
+          echo "Polling http://localhost:4444/wd/hub/status ..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4444/wd/hub/status | grep -q '"ready": *true'; then
+              echo "Grid hub is reachable and ready."
+              exit 0
+            fi
+            echo "Not ready yet (attempt $i/30), retrying in 5s..."
+            sleep 5
+          done
+          echo "Grid hub never became reachable/ready in time."
+          cat /tmp/port-forward.log
+          exit 1
+
+      - name: Run smoke tests against the grid
+        env:
+          SELENIUM_REMOTE_URL: http://localhost:4444/wd/hub
+          BROWSER: ${{ matrix.browser }}
+        run: |
+          pytest smoke-tests/ -v --junitxml=smoke-tests/junit-${{ matrix.browser }}.xml
+
+      - name: Dump pod logs and events on failure
+        if: failure()
+        run: |
+          kubectl get events -n selenium-grid --sort-by=.lastTimestamp
+          kubectl describe pods -n selenium-grid
+          kubectl logs -n selenium-grid -l app.kubernetes.io/instance=selenium-grid --all-containers --tail=200
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-artifacts-${{ matrix.browser }}
+          path: |
+            smoke-tests/screenshots/
+            smoke-tests/junit-${{ matrix.browser }}.xml
+          if-no-files-found: ignore
+
+      - name: Stop port-forward
+        if: always()
+        run: kill "$(cat /tmp/port-forward.pid)" 2>/dev/null || true
+
+      - name: Uninstall the chart
+        if: always()
+        run: helm uninstall selenium-grid --namespace selenium-grid || true
+
+      - name: Delete kind cluster
+        if: always()
+        run: kind delete cluster --name selenium-grid-ci || true

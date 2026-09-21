@@ -1,0 +1,18 @@
+apiVersion: v2
+name: selenium-grid
+description: A Selenium Grid (hub + Chrome node + Firefox node) for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "4.49.0"
+keywords:
+  - selenium
+  - selenium-grid
+  - testing
+  - qa
+  - browser-automation
+  - kubernetes
+home: https://github.com/Mehedi-K/k8s-selenium-grid
+sources:
+  - https://github.com/Mehedi-K/k8s-selenium-grid
+maintainers:
+  - name: Mehedi-K

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "selenium-grid.hub.name" . }}
+  labels:
+    {{- include "selenium-grid.hub.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.hub.service.type }}
+  selector:
+    {{- include "selenium-grid.hub.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: console
+      port: {{ .Values.hub.ports.console }}
+      targetPort: console
+      {{- if and (eq .Values.hub.service.type "NodePort") .Values.hub.service.nodePort }}
+      nodePort: {{ .Values.hub.service.nodePort }}
+      {{- end }}
+    - name: event-bus-pub
+      port: {{ .Values.hub.ports.eventBusPublish }}
+      targetPort: event-bus-pub
+    - name: event-bus-sub
+      port: {{ .Values.hub.ports.eventBusSubscribe }}
+      targetPort: event-bus-sub

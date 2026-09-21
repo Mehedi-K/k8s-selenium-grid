@@ -1,0 +1,123 @@
+# Default values for the selenium-grid chart.
+# These defaults are tuned to schedule reliably on a small, ephemeral local
+# kind cluster (as used by this repo's CI) with no overrides required.
+
+# -- Namespace-independent name overrides. Leave blank to use the release
+# name / chart name (see templates/_helpers.tpl).
+nameOverride: ""
+fullnameOverride: ""
+
+hub:
+  image:
+    repository: selenium/hub
+    tag: "4.49.0-20260909"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  # Selenium Grid 4 hub ports.
+  ports:
+    console: 4444 # Grid console + WebDriver endpoint (/wd/hub)
+    eventBusPublish: 4442
+    eventBusSubscribe: 4443
+
+  service:
+    # ClusterIP is enough for in-cluster smoke tests / port-forward access.
+    # Switch to NodePort for direct host access without port-forwarding.
+    type: ClusterIP
+    nodePort: 30444 # only used when service.type is NodePort
+
+  env:
+    SE_SESSION_REQUEST_TIMEOUT: "300"
+    SE_SESSION_RETRY_INTERVAL: "2"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 12
+    liveness:
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 6
+
+chromeNode:
+  image:
+    repository: selenium/node-chrome
+    tag: "4.49.0-20260909"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  port: 5555
+
+  maxSessions: 1
+
+  # Mounted at /dev/shm; Chrome/Firefox both need real shared memory or they
+  # crash mid-session. Kept modest so a single-node kind cluster can still
+  # schedule both node pods.
+  shmSize: 512Mi
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  probes:
+    readiness:
+      initialDelaySeconds: 15
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 12
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 6
+
+firefoxNode:
+  image:
+    repository: selenium/node-firefox
+    tag: "4.49.0-20260909"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  port: 5555
+
+  maxSessions: 1
+
+  shmSize: 512Mi
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  probes:
+    readiness:
+      initialDelaySeconds: 15
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 12
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 6

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Test artifacts
+smoke-tests/screenshots/
+.pytest-report.xml
+smoke-tests/junit-*.xml
+
+# Helm
+charts/selenium-grid/charts/
+*.tgz
+
+# Kubeconfig files that might get written locally while testing against a
+# kind/minikube cluster - never commit a real kubeconfig.
+kubeconfig
+kubeconfig*.yaml
+kubeconfig*.yml
+.kube/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp

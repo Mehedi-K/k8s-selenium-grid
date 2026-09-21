@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "selenium-grid.hub.name" . }}
+  labels:
+    {{- include "selenium-grid.hub.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.hub.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "selenium-grid.hub.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "selenium-grid.hub.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: selenium-hub
+          image: "{{ .Values.hub.image.repository }}:{{ .Values.hub.image.tag }}"
+          imagePullPolicy: {{ .Values.hub.image.pullPolicy }}
+          ports:
+            - name: console
+              containerPort: {{ .Values.hub.ports.console }}
+            - name: event-bus-pub
+              containerPort: {{ .Values.hub.ports.eventBusPublish }}
+            - name: event-bus-sub
+              containerPort: {{ .Values.hub.ports.eventBusSubscribe }}
+          env:
+            {{- range $key, $value := .Values.hub.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /wd/hub/status
+              port: console
+            initialDelaySeconds: {{ .Values.hub.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.hub.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.hub.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.hub.probes.readiness.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /wd/hub/status
+              port: console
+            initialDelaySeconds: {{ .Values.hub.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.hub.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.hub.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.hub.probes.liveness.failureThreshold }}
+          resources:
+            {{- toYaml .Values.hub.resources | nindent 12 }}
