@@ -54,6 +54,12 @@ jobs:
             -n selenium-grid \
             --timeout=240s
 
+      - name: Deploy smoke-test fixture pages
+        run: |
+          kubectl create configmap smoke-fixtures -n selenium-grid --from-file=smoke-tests/fixtures/
+          kubectl apply -n selenium-grid -f smoke-tests/k8s/fixtures.yaml
+          kubectl rollout status -n selenium-grid deployment/fixtures --timeout=120s
+
       - name: Show deployed resources
         if: always()
         run: |

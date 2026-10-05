@@ -12,7 +12,6 @@ Ready.
 import os
 
 import requests
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
@@ -20,6 +19,8 @@ from selenium.webdriver.support.ui import Select, WebDriverWait
 BASE_URL = "https://the-internet.herokuapp.com"
 SELENIUM_REMOTE_URL = os.environ.get("SELENIUM_REMOTE_URL", "http://localhost:4444/wd/hub")
 STATUS_URL = SELENIUM_REMOTE_URL.rstrip("/") + "/status"
+# Served to the node pods by the "fixtures" Service (smoke-tests/k8s/fixtures.yaml).
+FIXTURES_URL = os.environ.get("FIXTURES_URL", "http://fixtures")
 
 
 def test_hub_reports_ready_with_registered_nodes():
@@ -82,27 +83,13 @@ def test_dropdown_select_option(driver):
     assert dropdown.first_selected_option.text == "Option 2"
 
 
-def _open_with_start_handler_bound(driver, url, attempts=3):
-    # The demo's Heroku host intermittently 503s its own scripts (jQuery included).
-    handler_bound = (
-        "const b = document.querySelector('#start button');"
-        "return !!(b && window.jQuery && jQuery._data(b, 'events'));"
-    )
-    for _ in range(attempts):
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 10).until(lambda d: d.execute_script(handler_bound))
-            return
-        except TimeoutException:
-            continue
-    raise AssertionError(f"{url} never wired its Start button after {attempts} loads")
-
-
 def test_dynamic_loading_element_eventually_appears(driver):
-    _open_with_start_handler_bound(driver, f"{BASE_URL}/dynamic_loading/1")
-    driver.find_element(By.CSS_SELECTOR, "#start button").click()
+    driver.get(f"{FIXTURES_URL}/dynamic_loading.html")
+    WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "#start button"))
+    ).click()
 
-    finish_text = WebDriverWait(driver, 15).until(
+    finish_text = WebDriverWait(driver, 10).until(
         EC.visibility_of_element_located((By.ID, "finish"))
     )
     assert "Hello World!" in finish_text.text

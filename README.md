@@ -165,9 +165,14 @@ The Grid console is then reachable directly at `http://localhost:4444`
 ## Running the smoke tests
 
 The smoke-test suite in `smoke-tests/` is a standalone pytest project. With
-the hub reachable at `http://localhost:4444` (via either method above):
+the hub reachable at `http://localhost:4444` (via either method above),
+first deploy the static fixture pages the dynamic-loading test uses, then
+run the suite:
 
 ```bash
+kubectl create configmap smoke-fixtures -n selenium-grid --from-file=smoke-tests/fixtures/
+kubectl apply -n selenium-grid -f smoke-tests/k8s/fixtures.yaml
+
 cd smoke-tests
 pip install -r requirements.txt
 
@@ -183,7 +188,11 @@ hub and node Deployments actually found each other over the event bus, not
 just that the pods are `Running`. The remaining tests open real
 `RemoteWebDriver` sessions and drive them against
 [the-internet.herokuapp.com](https://the-internet.herokuapp.com/), a public
-site built for exercising this kind of browser automation.
+site built for exercising this kind of browser automation. The
+timing-sensitive dynamic-loading test instead uses a page from
+`smoke-tests/fixtures/`, served to the node pods by an in-cluster `fixtures`
+Service (`smoke-tests/k8s/fixtures.yaml`, test infrastructure only, not part
+of the chart), so a slow third-party host can't make it flaky.
 
 On any test failure, a screenshot is saved to `smoke-tests/screenshots/`
 (gitignored locally, uploaded as a CI artifact on failure).
